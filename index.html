@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#080808">
+
+<title>Vendetta — Private Invitation</title>
+
+<meta property="og:title" content="Vendetta — Private Invitation">
+<meta property="og:description" content="You have been invited. The night has a secret.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400&family=DM+Sans:wght@300;400;500&family=Homemade+Apple&family=Pinyon+Script&display=swap" rel="stylesheet">
+
+<style>
+
+/* =========================
+   CONFIGURACIÓN GENERAL
+========================= */
+
+:root {
+  --black: #080808;
+  --white: #f4f4f0;
+  --gray: #777;
+  --red: #7a1e1e;          /* rojo mate */
+  --sx: 0px;               /* sacudida del kick */
+  --sy: 0px;
+  --mx: 0;                 /* parallax del puntero (-1 a 1) */
+  --my: 0;
+  --heat: 0;               /* luz que sale de las grietas (0 a 1) */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body { height: 100%; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* TEXTURA DE GRANO */
+
+.noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .055;
+  z-index: 20;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* =========================
+   PIEDRA (canvas)
+========================= */
+
+#stone {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  translate: var(--sx) var(--sy);
+  transition: filter 1.2s ease;
+}
+
+body.broken #stone { filter: blur(1.4px); }
+
+/* =========================
+   LUCES DIFUMINADAS
+========================= */
+
+.lights {
+  position: fixed;
+  inset: -15%;
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: .55;
+  transition: opacity 2.4s ease, scale 3s cubic-bezier(.2,.7,.2,1);
+}
+
+body.broken .lights {
+  opacity: 1;
+  scale: 1.08;
+}
+
+.light {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+/* luz cálida, arriba a la izquierda */
+.l1 {
+  width: 70vmax; height: 70vmax;
+  left: -8vmax; top: -14vmax;
+  background: radial-gradient(circle, rgba(244,236,222,.16) 0%, rgba(244,236,222,.05) 38%, transparent 68%);
+  translate: calc(var(--mx) * -18px) calc(var(--my) * -14px);
+  animation: drift1 46s ease-in-out infinite alternate;
+}
+
+/* rojo mate, abajo a la derecha */
+.l2 {
+  width: 80vmax; height: 80vmax;
+  right: -22vmax; bottom: -26vmax;
+  background: radial-gradient(circle, rgba(122,30,30,.72) 0%, rgba(122,30,30,.26) 36%, transparent 68%);
+  translate: calc(var(--mx) * 28px) calc(var(--my) * 22px);
+  animation: drift2 54s ease-in-out infinite alternate;
+}
+
+/* ámbar tenue, centro */
+.l3 {
+  width: 55vmax; height: 55vmax;
+  left: 18%; top: 34%;
+  background: radial-gradient(circle, rgba(120,78,46,.24) 0%, rgba(120,78,46,.07) 40%, transparent 70%);
+  translate: calc(var(--mx) * 10px) calc(var(--my) * 8px);
+  animation: drift3 62s ease-in-out infinite alternate;
+}
+
+/* gris frío, arriba a la derecha */
+.l4 {
+  width: 40vmax; height: 40vmax;
+  right: 2%; top: 4%;
+  background: radial-gradient(circle, rgba(150,158,172,.13) 0%, transparent 66%);
+  translate: calc(var(--mx) * 36px) calc(var(--my) * 30px);
+  animation: drift1 40s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes drift1 { to { transform: translate3d(6vmax, 4vmax, 0); } }
+@keyframes drift2 { to { transform: translate3d(-7vmax, -5vmax, 0); } }
+@keyframes drift3 { to { transform: translate3d(-5vmax, 6vmax, 0); } }
+
+/* luz que se escapa por las grietas, nace en el botón */
+.heat {
+  position: fixed;
+  z-index: 3;
+  width: 120vmax; height: 120vmax;
+  left: 50%; top: 50%;
+  margin: -60vmax 0 0 -60vmax;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle, rgba(196,70,52,.55) 0%, rgba(122,30,30,.22) 18%, transparent 46%);
+  opacity: calc(var(--heat) * .9);
+  translate: var(--sx) var(--sy);
+  transition: opacity 1.4s ease;
+}
+
+body.broken .heat { opacity: 0; }
+
+/* =========================
+   ELEMENTOS GRÁFICOS
+========================= */
+
+.frame {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 2s ease .4s;
+}
+
+body.ready .frame { opacity: 1; }
+
+/* marcas de esquina */
+.corner {
+  position: absolute;
+  width: 14px; height: 14px;
+  border-color: rgba(244,244,240,.28);
+  border-style: solid;
+  border-width: 0;
+}
+
+.corner.tl { top: 14px; left: 14px; border-top-width: 1px; border-left-width: 1px; }
+.corner.tr { top: 14px; right: 14px; border-top-width: 1px; border-right-width: 1px; }
+.corner.bl { bottom: 14px; left: 14px; border-bottom-width: 1px; border-left-width: 1px; }
+.corner.br { bottom: 14px; right: 14px; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* textos laterales */
+.side {
+  position: absolute;
+  top: 50%;
+  font-size: 8px;
+  letter-spacing: 5px;
+  color: #555;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.side::before, .side::after {
+  content: "";
+  width: 34px; height: 1px;
+  background: linear-gradient(90deg, transparent, #3a3a3a);
+}
+
+.side::after { background: linear-gradient(90deg, #3a3a3a, transparent); }
+
+.side.left  { left: 26px;  transform: translate(-50%, -50%) rotate(-90deg); }
+.side.right { right: 26px; transform: translate(50%, -50%) rotate(90deg); }
+
+/* línea con rombo */
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 30px auto 0;
+  width: 150px;
+}
+
+.divider::before, .divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #444);
+}
+
+.divider::after { background: linear-gradient(90deg, #444, transparent); }
+
+.divider i {
+  width: 5px; height: 5px;
+  border: 1px solid #8a2a2a;
+  transform: rotate(45deg);
+}
+
+/* =========================
+   PANTALLA PRINCIPAL
+========================= */
+
+.container {
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 30px 7%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  z-index: 5;
+  translate: var(--sx) var(--sy);
+  transition: opacity .7s ease, filter .7s ease, transform .9s cubic-bezier(.2,.7,.2,1);
+}
+
+body.broken .container {
+  opacity: 0;
+  filter: blur(8px);
+  transform: scale(.97);
+  pointer-events: none;
+}
+
+/* entrada suave al cargar */
+.container > * {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(8px);
+  transition: opacity 1.4s ease, filter 1.4s ease, transform 1.4s cubic-bezier(.2,.7,.2,1);
+}
+
+body.ready .container > * { opacity: 1; filter: blur(0); transform: none; }
+body.ready .container > main { transition-delay: .15s; }
+body.ready .container > footer { transition-delay: .35s; }
+
+header,
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* LOGOTIPO */
+
+.logo {
+  font-family: 'Pinyon Script', cursive;
+  font-size: 55px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+/* =========================
+   DETALLES EN PLUMA FUENTE
+========================= */
+
+.pen {
+  font-family: 'Homemade Apple', cursive;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #bdb4a5;
+  line-height: 1.6;
+  display: inline-block;
+  transform: rotate(-1.6deg);
+  /* se "escribe" de izquierda a derecha */
+  clip-path: inset(-20% 100% -40% 0);
+  transition: clip-path 1.3s cubic-bezier(.45,.05,.35,1);
+  transition-delay: var(--d, 0s);
+}
+
+body.ready .container .pen { clip-path: inset(-20% -2% -40% 0); }
+.reveal-screen.active .pen { clip-path: inset(-20% -2% -40% 0); }
+
+.small { font-size: clamp(12px, 1vw, 15px); }
+
+/* CONTENIDO CENTRAL */
+
+main {
+  text-align: center;
+  padding: 45px 0;
+}
+
+.eyebrow {
+  font-size: clamp(14px, 1.35vw, 19px);
+  margin-bottom: 26px;
+}
+
+h1 {
+  font-family: 'Bodoni Moda', 'Didot', serif;
+  font-optical-sizing: auto;
+  font-size: clamp(54px, 13vw, 150px);
+  font-weight: 400;
+  letter-spacing: -.02em;
+  line-height: .95;
+}
+
+.subtitle {
+  font-family: 'Pinyon Script', cursive;
+  font-size: clamp(40px, 5vw, 60px);
+  color: #aaa;
+  margin-top: 10px;
+}
+
+.description {
+  margin-top: 22px;
+  font-size: clamp(13px, 1.2vw, 17px);
+}
+.description .pen { color: #8f877a; }
+
+/* =========================
+   BOTÓN INTERACTIVO
+========================= */
+
+.hold-area {
+  margin-top: 55px;
+  display: flex;
+  justify-content: center;
+}
+
+.hold-button {
+  width: 170px;
+  min-height: 170px;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  color: white;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 24px;
+  transition: transform .12s ease-out;
+}
+
+.hold-button.pressing { transform: scale(.96); }
+
+.hold-button:focus-visible { outline: 1px solid #8a2a2a; outline-offset: 6px; }
+
+/* HUELLA DIGITAL */
+
+.print {
+  width: 96px;
+  height: 96px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ridge-base {
+  fill: none;
+  stroke: rgba(244,244,240,.24);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  animation: hint 4.8s ease-in-out infinite;
+}
+
+/* destello que recorre la huella para invitar a tocarla */
+@keyframes hint {
+  0%, 70%, 100% { stroke: rgba(244,244,240,.24); }
+  80% { stroke: rgba(244,244,240,.42); }
+}
+
+.hold-button.pressing .ridge-base,
+.hold-button.done .ridge-base { animation: none; }
+
+.ridge-fill {
+  fill: none;
+  stroke: #f4f0e8;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 2px rgba(196,70,52,.7));
+  transition: stroke .6s ease;
+}
+
+.hold-button.done .ridge-fill { stroke: #c4584a; }
+
+.button-text {
+  font-size: clamp(14px, 1.1vw, 16px);
+  color: #e9e3d8;
+  pointer-events: none;
+  margin-top: 6px;
+}
+
+.button-subtext {
+  font-size: 10px;
+  color: #7d766b;
+  pointer-events: none;
+}
+
+/* =========================
+   REVELACIÓN
+========================= */
+
+.reveal-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 30px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 1.5s ease, visibility 1.5s;
+}
+
+.reveal-screen.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.reveal-label {
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.reveal-logo {
+  font-family: 'Pinyon Script', cursive;
+  font-size: clamp(85px, 13vw, 155px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.2;
+  margin-bottom: 10px;
+  filter: blur(14px);
+  transform: scale(1.04);
+  transition: filter 1.8s ease, transform 2.2s cubic-bezier(.2,.7,.2,1);
+}
+
+.reveal-screen.active .reveal-logo { filter: blur(0); transform: none; }
+
+.reveal-screen .divider {
+  margin: 0 auto 34px;
+  opacity: 0;
+  transition: opacity 1.4s ease .5s;
+}
+
+.reveal-screen.active .divider { opacity: 1; }
+
+/* UBICACIÓN EN ARIAL */
+
+.address {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(17px, 2.5vw, 25px);
+  font-weight: 300;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  line-height: 1.8;
+  max-width: 850px;
+  filter: blur(18px);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: filter 2s ease, opacity 2s ease, transform 2s ease;
+  transition-delay: .6s;
+}
+
+.reveal-screen.active .address {
+  filter: blur(0);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* BOTÓN GOOGLE MAPS */
+
+.map-button {
+  display: inline-block;
+  margin-top: 40px;
+  border: 1px solid #aaa;
+  color: white;
+  text-decoration: none;
+  padding: 18px 35px;
+  font-size: 9px;
+  letter-spacing: 4px;
+  background: rgba(8,8,8,.25);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: color .3s, background .3s, opacity 1.5s, transform .12s ease-out;
+  opacity: 0;
+  transition-delay: 0s, 0s, 1.8s, 0s;
+}
+
+.reveal-screen.active .map-button { opacity: 1; }
+
+.map-button:hover { color: black; background: white; }
+.map-button:active { transform: scale(.97); }
+
+/* MENSAJE FINAL */
+
+.final-message {
+  font-family: 'Pinyon Script', cursive;
+  font-size: 45px;
+  margin-top: 45px;
+  opacity: 0;
+  transition: opacity 1.5s;
+  transition-delay: 2.5s;
+}
+
+.reveal-screen.active .final-message { opacity: 1; }
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+  border-top: 1px solid #252525;
+  padding-top: 20px;
+}
+
+footer .pen {
+  font-size: clamp(11px, .9vw, 13px);
+  color: #6f685e;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 760px) {
+  .side { display: none; }
+}
+
+@media (max-width: 600px) {
+  .container { padding: 25px 6%; }
+  .logo { font-size: 46px; }
+  .small { font-size: 10px; }
+  main { padding: 35px 0; }
+  footer .pen { font-size: 9px; }
+  .reveal-logo { font-size: 100px; }
+  .address { font-size: 17px; letter-spacing: 3px; }
+  .final-message { font-size: 38px; }
+  .corner { width: 10px; height: 10px; }
+  .corner.tl, .corner.tr { top: 10px; }
+  .corner.bl, .corner.br { bottom: 10px; }
+  .corner.tl, .corner.bl { left: 10px; }
+  .corner.tr, .corner.br { right: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .light { animation: none; }
+  *, *::before, *::after { transition-duration: .01ms !important; }
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- LA PIEDRA: se dibuja con JavaScript -->
+<canvas id="stone" aria-hidden="true"></canvas>
+
+<!-- LUCES DIFUMINADAS -->
+<div class="lights" aria-hidden="true">
+  <div class="light l1"></div>
+  <div class="light l2"></div>
+  <div class="light l3"></div>
+  <div class="light l4"></div>
+</div>
+
+<div class="heat" id="heat" aria-hidden="true"></div>
+
+<!-- ELEMENTOS GRÁFICOS FIJOS -->
+<div class="frame" aria-hidden="true">
+  <span class="corner tl"></span>
+  <span class="corner tr"></span>
+  <span class="corner bl"></span>
+  <span class="corner br"></span>
+  <span class="side left">Nº 001</span>
+  <span class="side right">MMXXVI</span>
+</div>
+
+<div class="noise"></div>
+
+<!-- =========================
+     PANTALLA INICIAL
+========================= -->
+
+<div class="container" id="mainContent">
+
+<header>
+  <div class="logo">Vendetta</div>
+  <div class="small"><span class="pen" style="--d:.5s">Private event · Nº 001</span></div>
+</header>
+
+<main>
+
+  <div class="eyebrow"><span class="pen" style="--d:.8s">You have been invited</span></div>
+
+  <h1>THE NIGHT</h1>
+
+  <div class="subtitle">has a secret.</div>
+
+  <div class="divider" aria-hidden="true"><i></i></div>
+
+  <div class="description"><span class="pen" style="--d:1.4s">Some things are better left unknown.</span></div>
+
+  <!-- BOTÓN PARA REVELAR -->
+
+  <div class="hold-area">
+
+    <button class="hold-button" id="holdButton" aria-label="Mantén presionado para revelar la ubicación">
+
+      <!-- la huella se dibuja con JavaScript -->
+      <svg class="print" id="print" viewBox="-50 -50 100 100" aria-hidden="true"></svg>
+
+      <span class="button-text pen" id="buttonText" style="--d:1.9s">hold to reveal</span>
+      <span class="button-subtext pen" style="--d:2.2s">3 seconds</span>
+
+    </button>
+
+  </div>
+
+</main>
+
+<footer>
+  <span class="pen" style="--d:2.4s">Vendetta © 2026</span>
+  <span class="pen" style="--d:2.6s">An invitation to the unexpected</span>
+</footer>
+
+</div>
+
+<!-- =========================
+     PANTALLA DE UBICACIÓN
+========================= -->
+
+<section class="reveal-screen" id="revealScreen" aria-live="polite">
+
+  <div class="reveal-label"><span class="pen" style="--d:.3s">The secret is out</span></div>
+
+  <div class="reveal-logo">Vendetta</div>
+
+  <div class="divider" aria-hidden="true"><i></i></div>
+
+  <div class="reveal-label"><span class="pen" style="--d:.9s">Your destination</span></div>
+
+  <div class="address" id="address">POLANCO, MEXICO CITY</div>
+
+  <a class="map-button" id="mapLink" href="https://www.google.com/maps/search/?api=1&query=Polanco%2C+Mexico+City" target="_blank" rel="noopener">
+    OPEN IN GOOGLE MAPS ↗
+  </a>
+
+  <div class="final-message">See you there.</div>
+
+</section>
+
+<script>
+
+/* ==================================
+   EDITA LOS DATOS DEL EVENTO AQUÍ
+================================== */
+
+const EVENT = {
+
+  // DIRECCIÓN QUE SE VA A REVELAR
+  address: "POLANCO, MEXICO CITY",
+
+  // ENLACE DE GOOGLE MAPS
+  mapsLink: "https://www.google.com/maps/search/?api=1&query=Polanco%2C+Mexico+City",
+
+  // TIEMPO PARA DESBLOQUEAR (3000 = 3 SEGUNDOS)
+  holdDuration: 3000,
+
+  // GOLPE DE BOMBO AL AGRIETARSE (true / false)
+  sound: true
+
+};
+
+/* ==================================
+   ELEMENTOS
+================================== */
+
+const button       = document.getElementById("holdButton");
+const printEl      = document.getElementById("print");
+const buttonText   = document.getElementById("buttonText");
+const revealScreen = document.getElementById("revealScreen");
+const heatEl       = document.getElementById("heat");
+const canvas       = document.getElementById("stone");
+const ctx          = canvas.getContext("2d");
+const root         = document.documentElement;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+document.getElementById("address").textContent = EVENT.address;
+document.getElementById("mapLink").href = EVENT.mapsLink;
+
+/* ==================================
+   UTILIDADES
+================================== */
+
+function rng(seed) {               // aleatorio con semilla: la piedra sale igual siempre
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hash(x, y, o) {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(o, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+
+function valueNoise(x, y, o) {
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const a = hash(ix, iy, o), b = hash(ix + 1, iy, o);
+  const c = hash(ix, iy + 1, o), d = hash(ix + 1, iy + 1, o);
+  return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+}
+
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const clamp01 = t => Math.max(0, Math.min(1, t));
+
+/* ==================================
+   SONIDO (bombo sintetizado)
+================================== */
+
+let audio = null;
+
+function unlockAudio() {
+  if (!EVENT.sound) return;
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+  } catch (e) { audio = null; }
+}
+
+function kickSound(big) {
+  if (!audio) return;
+  const t = audio.currentTime;
+  const osc = audio.createOscillator();
+  const g = audio.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(big ? 140 : 120, t);
+  osc.frequency.exponentialRampToValueAtTime(42, t + (big ? .2 : .12));
+  g.gain.setValueAtTime(big ? .55 : .32, t);
+  g.gain.exponentialRampToValueAtTime(.001, t + (big ? .7 : .35));
+  osc.connect(g).connect(audio.destination);
+  osc.start(t);
+  osc.stop(t + .8);
+
+  if (big) {                        // piedra que se desmorona
+    const len = Math.floor(audio.sampleRate * .9);
+    const buf = audio.createBuffer(1, len, audio.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+    const src = audio.createBufferSource();
+    const lp = audio.createBiquadFilter();
+    const ng = audio.createGain();
+    src.buffer = buf;
+    lp.type = "lowpass";
+    lp.frequency.value = 1400;
+    ng.gain.value = .22;
+    src.connect(lp).connect(ng).connect(audio.destination);
+    src.start(t);
+  }
+}
+
+/* ==================================
+   LA HUELLA DIGITAL
+================================== */
+
+const ridges = [];   // trazos que se llenan al mantener presionado
+
+function buildPrint() {
+  const R = rng(5);
+  const NS = "http://www.w3.org/2000/svg";
+  const n = 11;
+
+  for (let i = 0; i < n; i++) {
+    const r = 3.5 + i * 4.1;
+    const rx = r * .8, ry = r;
+    // la abertura de cada surco cae hacia abajo, como en una huella real
+    const gapC = Math.PI / 2 + Math.sin(i * 1.7) * .55;
+    const gap = i === 0 ? 1.2 : .35 + R() * .55;
+    const a0 = gapC + gap / 2;
+    const a1 = gapC - gap / 2 + Math.PI * 2;
+
+    // algunos surcos se cortan una segunda vez para verse orgánicos
+    const cuts = [[a0, a1]];
+    if (i > 2 && R() > .45) {
+      const c = a0 + (a1 - a0) * (.25 + R() * .5), w = .22 + R() * .2;
+      cuts.splice(0, 1, [a0, c - w / 2], [c + w / 2, a1]);
+    }
+
+    for (const [b0, b1] of cuts) {
+      let d = "";
+      const steps = Math.max(8, Math.round((b1 - b0) * r * .9));
+      for (let k = 0; k <= steps; k++) {
+        const a = b0 + (b1 - b0) * (k / steps);
+        const wob = 1 + Math.sin(a * 3 + i * .9) * .035 + Math.sin(a * 7 + i) * .015;
+        const x = Math.cos(a) * rx * wob;
+        const y = Math.sin(a) * ry * wob - (r * .06);
+        d += (k ? "L" : "M") + x.toFixed(2) + " " + y.toFixed(2);
+      }
+      const base = document.createElementNS(NS, "path");
+      base.setAttribute("d", d);
+      base.setAttribute("class", "ridge-base");
+      base.style.animationDelay = (i * .05) + "s";
+      const fill = document.createElementNS(NS, "path");
+      fill.setAttribute("d", d);
+      fill.setAttribute("class", "ridge-fill");
+      fill.setAttribute("pathLength", "1");
+      printEl.appendChild(base);
+      printEl.appendChild(fill);
+      ridges.push({ el: fill, i, n });
+    }
+  }
+}
+
+// del centro hacia afuera, como si la presión se extendiera por el dedo
+function updatePrint(p) {
+  for (const r of ridges) {
+    const start = (r.i / r.n) * .72;
+    const f = clamp01((p - start) / .28);
+    r.el.style.strokeDashoffset = (1 - f).toFixed(4);
+  }
+}
+
+buildPrint();
+
+/* ==================================
+   LA PIEDRA
+================================== */
+
+let W = 0, H = 0, DPR = 1;
+let tex = null;          // textura de piedra
+let cells = [];          // fragmentos (polígonos)
+let edges = [];          // grietas
+let origin = { x: 0, y: 0 };
+let maxR = 1;
+
+function buildTexture() {
+  tex = document.createElement("canvas");
+  tex.width = Math.round(W * DPR);
+  tex.height = Math.round(H * DPR);
+  const t = tex.getContext("2d");
+
+  // ruido a baja resolución, escalado: manchas suaves de piedra mate
+  const s = 4;
+  const lw = Math.ceil(W / s) + 2, lh = Math.ceil(H / s) + 2;
+  const low = document.createElement("canvas");
+  low.width = lw; low.height = lh;
+  const lc = low.getContext("2d");
+  const img = lc.createImageData(lw, lh);
+  const oct = [[1 / 46, .5, 1], [1 / 16, .27, 2], [1 / 6, .15, 3], [1 / 2.2, .08, 4]];
+
+  for (let y = 0; y < lh; y++) {
+    for (let x = 0; x < lw; x++) {
+      let v = 0;
+      for (const [f, a, o] of oct) v += a * valueNoise(x * f, y * f, o);
+      // vetas suaves tipo mármol oscuro
+      const vein = Math.abs(Math.sin((x * .021 + y * .013) + valueNoise(x / 30, y / 30, 9) * 5));
+      v += Math.pow(1 - vein, 14) * .18;
+      const i = (y * lw + x) * 4;
+      img.data[i]     = 15 + v * 19;
+      img.data[i + 1] = 14 + v * 18;
+      img.data[i + 2] = 13 + v * 17;
+      img.data[i + 3] = 255;
+    }
+  }
+  lc.putImageData(img, 0, 0);
+
+  t.imageSmoothingEnabled = true;
+  t.imageSmoothingQuality = "high";
+  t.drawImage(low, 0, 0, lw * s * DPR, lh * s * DPR);
+  t.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  // poros finos
+  const R = rng(3);
+  for (let i = 0; i < (W * H) / 900; i++) {
+    t.fillStyle = R() > .5 ? "rgba(255,250,240,.025)" : "rgba(0,0,0,.18)";
+    t.fillRect(R() * W, R() * H, 1, 1);
+  }
+
+  // viñeta: el centro un poco más iluminado, bordes hacia el negro
+  const g = t.createRadialGradient(W / 2, H * .46, 0, W / 2, H * .46, Math.max(W, H) * .78);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(.55, "rgba(0,0,0,.25)");
+  g.addColorStop(1, "rgba(0,0,0,.72)");
+  t.fillStyle = g;
+  t.fillRect(0, 0, W, H);
+}
+
+function clipHalf(poly, p, q) {
+  const nx = q.x - p.x, ny = q.y - p.y;
+  const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const da = (a.x - mx) * nx + (a.y - my) * ny;
+    const db = (b.x - mx) * nx + (b.y - my) * ny;
+    if (da <= 0) out.push(a);
+    if ((da <= 0) !== (db <= 0)) {
+      const t = da / (da - db);
+      out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  return out;
+}
+
+function buildShards() {
+  const R = rng(11);
+  const pts = [{ x: origin.x + (R() - .5) * 16, y: origin.y + (R() - .5) * 16 }];
+  const far = Math.hypot(Math.max(origin.x, W - origin.x), Math.max(origin.y, H - origin.y));
+
+  // anillos alrededor del botón: fragmentos chicos cerca, grandes lejos
+  let r = 46, k = 1;
+  while (r < far * 1.15) {
+    const n = 5 + k * 2;
+    const off = R() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = off + (i / n) * Math.PI * 2 + (R() - .5) * .55;
+      const rr = r * (.82 + R() * .36);
+      pts.push({ x: origin.x + Math.cos(a) * rr, y: origin.y + Math.sin(a) * rr });
+    }
+    r *= 1.6; k++;
+  }
+
+  const pad = 4;
+  const rect = [{ x: -pad, y: -pad }, { x: W + pad, y: -pad }, { x: W + pad, y: H + pad }, { x: -pad, y: H + pad }];
+
+  cells = [];
+  pts.forEach((p, i) => {
+    let poly = rect;
+    for (let j = 0; j < pts.length && poly.length; j++) if (j !== i) poly = clipHalf(poly, p, pts[j]);
+    if (poly.length < 3) return;
+    let cx = 0, cy = 0, area = 0;
+    for (let m = 0; m < poly.length; m++) {
+      const a = poly[m], b = poly[(m + 1) % poly.length];
+      const cr = a.x * b.y - b.x * a.y;
+      area += cr; cx += (a.x + b.x) * cr; cy += (a.y + b.y) * cr;
+    }
+    area /= 2;
+    if (Math.abs(area) < 1) return;
+    cells.push({ poly, cx: cx / (6 * area), cy: cy / (6 * area), area: Math.abs(area) });
+  });
+
+  // grietas = bordes compartidos entre fragmentos
+  const onBorder = v => v.x <= -pad + .5 || v.x >= W + pad - .5 || v.y <= -pad + .5 || v.y >= H + pad - .5;
+  const seen = new Set();
+  edges = [];
+  maxR = 0;
+
+  for (const c of cells) {
+    for (let m = 0; m < c.poly.length; m++) {
+      let a = c.poly[m], b = c.poly[(m + 1) % c.poly.length];
+      if (onBorder(a) && onBorder(b)) continue;
+      const k1 = Math.round(a.x) + "," + Math.round(a.y), k2 = Math.round(b.x) + "," + Math.round(b.y);
+      const key = k1 < k2 ? k1 + "|" + k2 : k2 + "|" + k1;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let d0 = Math.hypot(a.x - origin.x, a.y - origin.y);
+      let d1 = Math.hypot(b.x - origin.x, b.y - origin.y);
+      if (d1 < d0) { [a, b] = [b, a]; [d0, d1] = [d1, d0]; }
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 2) continue;
+
+      // línea quebrada: las grietas reales no son rectas
+      const steps = Math.max(2, Math.round(len / 13));
+      const nx = -(b.y - a.y) / len, ny = (b.x - a.x) / len;
+      const pts2 = [];
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const j = (s === 0 || s === steps) ? 0 : (R() - .5) * 3.2;
+        pts2.push({ x: a.x + (b.x - a.x) * t + nx * j, y: a.y + (b.y - a.y) * t + ny * j });
+      }
+      edges.push({ pts: pts2, d0, d1 });
+      maxR = Math.max(maxR, Math.min(d1, far));
+    }
+  }
+  maxR = Math.max(maxR, far);
+}
+
+function traceCracks(radius, from, to) {
+  for (const e of edges) {
+    if (radius <= e.d0 || e.d0 < from || e.d0 >= to) continue;
+    const f = clamp01((radius - e.d0) / Math.max(1, e.d1 - e.d0));
+    const total = e.pts.length - 1;
+    const upto = f * total;
+    ctx.moveTo(e.pts[0].x, e.pts[0].y);
+    for (let s = 1; s <= total; s++) {
+      if (s <= upto) ctx.lineTo(e.pts[s].x, e.pts[s].y);
+      else {
+        const t = upto - (s - 1);
+        if (t > 0) {
+          const a = e.pts[s - 1], b = e.pts[s];
+          ctx.lineTo(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        }
+        break;
+      }
+    }
+  }
+}
+
+function drawIntact(crack) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(tex, 0, 0, W, H);
+  if (crack <= .001) return;
+
+  // crece más lento al principio: primero se rompe cerca del botón
+  const radius = crackRadius(crack);
+
+  // tres anillos: cerca brilla más, lejos la grieta es apenas una línea
+  const bands = [
+    [0, .3, .9, 1.1, 14],
+    [.3, .6, .5, .9, 9],
+    [.6, 9, .26, .7, 6]
+  ];
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  for (const [a, b, light, width, blur] of bands) {
+    ctx.beginPath();
+    traceCracks(radius, a * maxR, b * maxR);
+
+    // sombra oscura de la grieta
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(0,0,0," + (.35 + light * .45) + ")";
+    ctx.lineWidth = width + 1.6;
+    ctx.stroke();
+
+    // luz que se escapa por dentro
+    ctx.shadowColor = "rgba(170,40,34," + light + ")";
+    ctx.shadowBlur = blur;
+    ctx.strokeStyle = "rgba(255,224,206," + light + ")";
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // bajo la huella la piedra sigue entera: las grietas nacen de su borde
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(safe.x, safe.y, safe.rx, safe.ry, 0, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(tex, 0, 0, W, H);
+  ctx.restore();
+}
+
+/* ==================================
+   ESTADO DEL GESTO
+================================== */
+
+let holding = false;
+let progress = 0;      // 0 a 1, avance del gesto
+let crack = 0;         // lo que se ve dibujado (suavizado)
+let lastBeat = -1;
+let broken = false;
+let brokeAt = 0;
+let shake = 0;
+let lastT = 0;
+let rafId = null;
+let shards = [];
+let dust = [];            // polvo que cae de las grietas en cada golpe
+const PRINT_R = 44;
+let safe = { x: 0, y: 0, rx: 60, ry: 90 };   // zona del botón donde la piedra no se raja
+
+function crackRadius(c) { return Math.pow(c, 1.5) * maxR * 1.03; }
+
+function spawnDust(radius) {
+  if (reduceMotion) return;
+  const R = Math.random;
+  const live = edges.filter(e => e.d0 < radius && e.d0 > PRINT_R * .6);
+  for (let k = 0; k < 18 && live.length; k++) {
+    const e = live[(R() * live.length) | 0];
+    const pt = e.pts[(R() * e.pts.length) | 0];
+    if (Math.hypot(pt.x - origin.x, pt.y - origin.y) > radius) continue;
+    const ex = (pt.x - safe.x) / safe.rx, ey = (pt.y - safe.y) / safe.ry;
+    if (ex * ex + ey * ey < 1) continue;
+    dust.push({
+      x: pt.x, y: pt.y,
+      vx: (R() - .5) * 50,
+      vy: -R() * 40,
+      t: 0,
+      life: .6 + R() * .6,
+      s: .6 + R() * 1.1,
+      warm: R() > .6
+    });
+  }
+}
+
+function drawDust(dt) {
+  for (const d of dust) {
+    d.t += dt;
+    d.vy += 520 * dt;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    const a = clamp01(1 - d.t / d.life);
+    ctx.fillStyle = d.warm ? "rgba(255,210,190," + (a * .7) + ")" : "rgba(200,194,186," + (a * .55) + ")";
+    ctx.fillRect(d.x, d.y, d.s, d.s);
+  }
+  dust = dust.filter(d => d.t < d.life);
+}
+
+// las grietas avanzan a golpes: 4 kicks y en el 5.º se rompe
+function stepped(p) {
+  const b = Math.min(3, Math.floor(p * 4));
+  const local = p * 4 - b;
+  return (b + easeOut(Math.min(1, local * 2.4))) / 4;
+}
+
+function kick(big) {
+  kickSound(big);
+  if (navigator.vibrate) navigator.vibrate(big ? 40 : 12);
+  if (!reduceMotion) shake = big ? 1 : .55;
+}
+
+function loop(now) {
+  const dt = Math.min(.05, (now - (lastT || now)) / 1000);
+  lastT = now;
+
+  if (!broken) {
+    if (holding) {
+      progress = Math.min(1, progress + dt * 1000 / EVENT.holdDuration);
+      const beat = Math.floor(progress * 4);
+      if (beat > lastBeat && progress < 1) {
+        lastBeat = beat;
+        kick(false);
+        spawnDust(crackRadius(stepped(Math.min(.999, progress + .02))));
+      }
+      if (progress >= 1) { breakStone(now); }
+    } else {
+      // al soltar, la piedra "se cierra" despacio en vez de saltar
+      progress = Math.max(0, progress - dt / .7);
+    }
+
+    const target = holding ? stepped(progress) : progress;
+    crack += (target - crack) * (1 - Math.exp(-dt / .07));
+    if (Math.abs(target - crack) < .0005) crack = target;
+
+    updatePrint(progress);
+    root.style.setProperty("--heat", crack.toFixed(3));
+    if (!broken) { drawIntact(crack); drawDust(dt); }
+  } else {
+    drawShards((now - brokeAt) / 1000, dt);
+  }
+
+  // sacudida corta y amortiguada
+  if (shake > .001) {
+    shake *= Math.exp(-dt / .06);
+    root.style.setProperty("--sx", ((Math.random() - .5) * 7 * shake).toFixed(2) + "px");
+    root.style.setProperty("--sy", ((Math.random() - .5) * 7 * shake).toFixed(2) + "px");
+  } else if (shake !== 0) {
+    shake = 0;
+    root.style.setProperty("--sx", "0px");
+    root.style.setProperty("--sy", "0px");
+  }
+
+  const idle = !broken && !holding && progress === 0 && crack === 0 && shake === 0 && dust.length === 0;
+  const doneBreaking = broken && reduceMotion && (now - brokeAt) > 900;
+  if (idle || doneBreaking) { rafId = null; lastT = 0; return; }
+  rafId = requestAnimationFrame(loop);
+}
+
+function startLoop() {
+  if (!rafId) { lastT = 0; rafId = requestAnimationFrame(loop); }
+}
+
+/* ==================================
+   ROMPER LA PIEDRA
+================================== */
+
+function breakStone(now) {
+  broken = true;
+  brokeAt = now;
+  holding = false;
+  kick(true);
+
+  updatePrint(1);
+  buttonText.textContent = "unlocked";
+  button.classList.remove("pressing");
+  button.classList.add("done");
+  dust = [];
+  document.body.classList.add("broken");
+
+  const R = rng(29);
+
+  // fragmentos que se quedan flotando como detalle gráfico
+  const candidates = cells
+    .filter(c => c.area > 1800 && c.area < 16000 && Math.hypot(c.cx - origin.x, c.cy - origin.y) > 90)
+    .sort(() => R() - .5)
+    .slice(0, 3);
+  const spots = [
+    { x: W * .13, y: H * .2 },
+    { x: W * .86, y: H * .74 },
+    { x: W * .22, y: H * .88 }
+  ];
+
+  shards = cells.map(c => {
+    const dx = c.cx - origin.x, dy = c.cy - origin.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const speed = (380 + R() * 320) / (1 + dist / 320) + 60;
+    const fi = candidates.indexOf(c);
+    return {
+      c,
+      x: 0, y: 0,
+      vx: dx / dist * speed,
+      vy: dy / dist * speed - R() * 140,
+      rot: 0,
+      vr: (R() - .5) * 2.4,
+      s: 1,
+      vs: R() * .4,
+      alpha: 1,
+      floater: !reduceMotion && fi >= 0,
+      tx: fi >= 0 ? spots[fi].x - c.cx : 0,
+      ty: fi >= 0 ? spots[fi].y - c.cy : 0,
+      phase: R() * 6
+    };
+  });
+
+  setTimeout(() => revealScreen.classList.add("active"), reduceMotion ? 100 : 650);
+  startLoop();
+}
+
+function drawShard(sh) {
+  if (sh.alpha <= .01) return;
+  const { c } = sh;
+  ctx.save();
+  ctx.globalAlpha = sh.alpha;
+  ctx.translate(c.cx + sh.x, c.cy + sh.y);
+  ctx.rotate(sh.rot);
+  ctx.scale(sh.s, sh.s);
+  ctx.translate(-c.cx, -c.cy);
+  ctx.beginPath();
+  c.poly.forEach((v, i) => i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y));
+  ctx.closePath();
+  ctx.save();
+  ctx.clip();
+  ctx.drawImage(tex, 0, 0, W, H);
+  ctx.restore();
+  // canto iluminado del fragmento
+  ctx.strokeStyle = "rgba(255,232,218,.16)";
+  ctx.lineWidth = 1 / sh.s;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawShards(t, dt) {
+  ctx.clearRect(0, 0, W, H);
+
+  if (reduceMotion) {
+    const a = clamp01(1 - t / .6);
+    for (const sh of shards) { sh.alpha = a; drawShard(sh); }
+    return;
+  }
+
+  // resorte críticamente amortiguado para los que flotan
+  const k = Math.pow(2 * Math.PI / 1.2, 2);
+  const damp = 2 * Math.sqrt(k);
+
+  for (const sh of shards) {
+    if (sh.floater) {
+      const bobY = t > 1.5 ? Math.sin(t * .35 + sh.phase) * 5 : 0;
+      const bobR = t > 1.5 ? Math.sin(t * .27 + sh.phase) * .06 : 0;
+      sh.vx += (-k * (sh.x - sh.tx) - damp * sh.vx) * dt;
+      sh.vy += (-k * (sh.y - (sh.ty + bobY)) - damp * sh.vy) * dt;
+      sh.x += sh.vx * dt;
+      sh.y += sh.vy * dt;
+      sh.vr += (-k * (sh.rot - (.35 + bobR)) - damp * sh.vr) * dt;
+      sh.rot += sh.vr * dt;
+      sh.s += (.42 - sh.s) * (1 - Math.exp(-dt / .5));
+      sh.alpha += (.6 - sh.alpha) * (1 - Math.exp(-dt / .6));
+    } else {
+      sh.vy += 1500 * dt;
+      sh.x += sh.vx * dt;
+      sh.y += sh.vy * dt;
+      sh.rot += sh.vr * dt;
+      sh.s += sh.vs * dt;
+      sh.alpha = clamp01(1 - t / 1.25);
+    }
+    drawShard(sh);
+  }
+}
+
+/* ==================================
+   MANTENER PRESIONADO
+================================== */
+
+function startHold(event) {
+  if (broken || holding) return;
+  if (event && event.preventDefault) event.preventDefault();
+  if (event && event.pointerId !== undefined) {
+    try { button.setPointerCapture(event.pointerId); } catch (e) {}
+  }
+  unlockAudio();
+  holding = true;
+  button.classList.add("pressing");
+  buttonText.textContent = "keep holding…";
+  lastBeat = Math.floor(progress * 4);
+  kick(false);                // respuesta inmediata al tocar
+  startLoop();
+}
+
+function cancelHold() {
+  if (broken || !holding) return;
+  holding = false;
+  button.classList.remove("pressing");
+  buttonText.textContent = "hold to reveal";
+  startLoop();
+}
+
+button.addEventListener("pointerdown", startHold);
+button.addEventListener("pointerup", cancelHold);
+button.addEventListener("pointercancel", cancelHold);
+button.addEventListener("lostpointercapture", cancelHold);
+button.addEventListener("contextmenu", e => e.preventDefault());
+
+button.addEventListener("keydown", e => {
+  if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); startHold(); }
+});
+button.addEventListener("keyup", e => {
+  if (e.key === " " || e.key === "Enter") cancelHold();
+});
+
+/* ==================================
+   PARALLAX DE LAS LUCES
+================================== */
+
+if (!reduceMotion) {
+  let tmx = 0, tmy = 0, mx = 0, my = 0, pRaf = null;
+  const follow = () => {
+    mx += (tmx - mx) * .06;
+    my += (tmy - my) * .06;
+    root.style.setProperty("--mx", mx.toFixed(3));
+    root.style.setProperty("--my", my.toFixed(3));
+    pRaf = (Math.abs(tmx - mx) > .002 || Math.abs(tmy - my) > .002) ? requestAnimationFrame(follow) : null;
+  };
+  window.addEventListener("pointermove", e => {
+    tmx = (e.clientX / innerWidth) * 2 - 1;
+    tmy = (e.clientY / innerHeight) * 2 - 1;
+    if (!pRaf) pRaf = requestAnimationFrame(follow);
+  }, { passive: true });
+}
+
+/* ==================================
+   TAMAÑO DE PANTALLA
+================================== */
+
+function measureOrigin() {
+  const b = button.getBoundingClientRect();
+  safe = { x: b.left + b.width / 2, y: b.top + b.height / 2, rx: b.width * .52, ry: b.height * .56 };
+  const r = printEl.getBoundingClientRect();
+  origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  heatEl.style.left = origin.x + "px";
+  heatEl.style.top = origin.y + "px";
+}
+
+function setup() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (broken) return;          // ya rota: no se reconstruye
+  buildTexture();
+  measureOrigin();
+  buildShards();
+  drawIntact(crack);
+}
+
+let resizeTimer = null;
+let lastSize = "";
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const size = innerWidth + "x" + innerHeight;
+    if (size !== lastSize) { lastSize = size; setup(); }
+  }, 150);
+});
+
+function init() {
+  lastSize = innerWidth + "x" + innerHeight;
+  setup();
+  requestAnimationFrame(() => document.body.classList.add("ready"));
+}
+
+// espera las fuentes para medir bien dónde queda el botón
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(init);
+  setTimeout(() => { if (!tex) init(); }, 1500);
+} else {
+  init();
+}
+
+</script>
+
+</body>
+</html>
